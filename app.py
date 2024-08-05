@@ -1,200 +1,104 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
+import streamlit as st
 
-# Load data
-def load_data(file_path):
-    return pd.read_excel(file_path)
+# Load the stock data from Excel
+file_path = 'all_stocks_data.xlsx'  # Update this path as needed
+stock_data = pd.read_excel(file_path)
 
-# Calculate risk metrics
-def calculate_risk_metrics(stock_info):
-    # Initialize risk scores
-    risk_scores = {}
-
+# Function to calculate risk metrics and generate risk scores
+def calculate_risk_metrics(stock):
+    metrics = {}
+    
     # Market Risk Metrics
-    if stock_info['beta'] < 0.5:
-        risk_scores['Beta'] = 1
-    elif 0.5 <= stock_info['beta'] < 0.9:
-        risk_scores['Beta'] = 2
-    elif 1.0 <= stock_info['beta'] < 1.5:
-        risk_scores['Beta'] = 3
+    beta = stock['beta']
+    if beta < 0.5:
+        metrics['Beta'] = (1, 'Low Risk')
+    elif 0.5 <= beta < 0.9:
+        metrics['Beta'] = (2, 'Moderate Risk')
+    elif 0.9 <= beta < 1.5:
+        metrics['Beta'] = (3, 'High Risk')
     else:
-        risk_scores['Beta'] = 4
-
-    if stock_info['52WeekChange'] > 0.2:
-        risk_scores['52-Week Change'] = 1
-    elif 0.0 <= stock_info['52WeekChange'] <= 0.2:
-        risk_scores['52-Week Change'] = 2
-    elif -0.1 <= stock_info['52WeekChange'] < 0.0:
-        risk_scores['52-Week Change'] = 3
+        metrics['Beta'] = (4, 'Very High Risk')
+    
+    # 52-Week Change
+    change_52_week = stock['52_Week_Change']
+    if change_52_week > 20:
+        metrics['52-Week Change'] = (1, 'High Positive Performance')
+    elif 0 <= change_52_week <= 20:
+        metrics['52-Week Change'] = (2, 'Positive Performance')
+    elif -10 <= change_52_week < 0:
+        metrics['52-Week Change'] = (3, 'Negative Performance')
     else:
-        risk_scores['52-Week Change'] = 4
-
-    price_volatility = stock_info['dayHigh'] - stock_info['dayLow']
-    average_volume = stock_info['volume'] / stock_info['avgVolume']
-    if price_volatility < 1 * average_volume:
-        risk_scores['Price Volatility'] = 1
-    elif 1 <= price_volatility < 2 * average_volume:
-        risk_scores['Price Volatility'] = 2
+        metrics['52-Week Change'] = (4, 'High Negative Performance')
+    
+    # Price Volatility
+    day_high = stock['Day_High']
+    day_low = stock['Day_Low']
+    avg_volume = stock['Average_Volume']
+    if (day_high - day_low) < avg_volume:
+        metrics['Price Volatility'] = (1, 'Low Volatility')
+    elif avg_volume <= (day_high - day_low) < 2 * avg_volume:
+        metrics['Price Volatility'] = (2, 'Moderate Volatility')
     else:
-        risk_scores['Price Volatility'] = 3
-
+        metrics['Price Volatility'] = (3, 'High Volatility')
+    
     # Liquidity Risk Metrics
-    if stock_info['currentRatio'] > 3:
-        risk_scores['Current Ratio'] = 1
-    elif 2 <= stock_info['currentRatio'] <= 3:
-        risk_scores['Current Ratio'] = 2
-    elif 1 <= stock_info['currentRatio'] < 2:
-        risk_scores['Current Ratio'] = 3
+    current_ratio = stock['Current_Ratio']
+    if current_ratio > 3:
+        metrics['Current Ratio'] = (1, 'Excellent Liquidity')
+    elif 2 <= current_ratio <= 3:
+        metrics['Current Ratio'] = (2, 'Good Liquidity')
+    elif 1 <= current_ratio < 2:
+        metrics['Current Ratio'] = (3, 'Adequate Liquidity')
     else:
-        risk_scores['Current Ratio'] = 4
-
-    if stock_info['quickRatio'] > 1.5:
-        risk_scores['Quick Ratio'] = 1
-    elif 1 <= stock_info['quickRatio'] <= 1.5:
-        risk_scores['Quick Ratio'] = 2
-    elif 0.5 <= stock_info['quickRatio'] < 1:
-        risk_scores['Quick Ratio'] = 3
+        metrics['Current Ratio'] = (4, 'Poor Liquidity')
+    
+    # Quick Ratio
+    quick_ratio = stock['Quick_Ratio']
+    if quick_ratio > 1.5:
+        metrics['Quick Ratio'] = (1, 'Excellent Liquidity')
+    elif 1 <= quick_ratio <= 1.5:
+        metrics['Quick Ratio'] = (2, 'Good Liquidity')
+    elif 0.5 <= quick_ratio < 1:
+        metrics['Quick Ratio'] = (3, 'Adequate Liquidity')
     else:
-        risk_scores['Quick Ratio'] = 4
-
-    if stock_info['volume'] > 3 * stock_info['avgVolume']:
-        risk_scores['Volume vs. Average Volume'] = 1
-    elif 2 <= stock_info['volume'] <= 3 * stock_info['avgVolume']:
-        risk_scores['Volume vs. Average Volume'] = 2
-    elif 1 <= stock_info['volume'] < 2 * stock_info['avgVolume']:
-        risk_scores['Volume vs. Average Volume'] = 3
+        metrics['Quick Ratio'] = (4, 'Poor Liquidity')
+    
+    # Volume vs. Average Volume
+    volume = stock['Volume']
+    if volume > 3 * stock['Average_Volume']:
+        metrics['Volume vs. Average Volume'] = (1, 'High Liquidity')
+    elif 2 * stock['Average_Volume'] <= volume <= 3 * stock['Average_Volume']:
+        metrics['Volume vs. Average Volume'] = (2, 'Good Liquidity')
+    elif stock['Average_Volume'] <= volume < 2 * stock['Average_Volume']:
+        metrics['Volume vs. Average Volume'] = (3, 'Moderate Liquidity')
     else:
-        risk_scores['Volume vs. Average Volume'] = 4
+        metrics['Volume vs. Average Volume'] = (4, 'Low Liquidity')
+    
+    # Add more metrics as needed...
 
-    # Leverage Risk Metrics
-    if stock_info['debtToEquity'] < 0.3:
-        risk_scores['Debt-to-Equity Ratio'] = 1
-    elif 0.3 <= stock_info['debtToEquity'] < 0.6:
-        risk_scores['Debt-to-Equity Ratio'] = 2
-    elif 0.6 <= stock_info['debtToEquity'] < 1.0:
-        risk_scores['Debt-to-Equity Ratio'] = 3
-    else:
-        risk_scores['Debt-to-Equity Ratio'] = 4
+    return metrics
 
-    if stock_info['totalDebt'] / stock_info['equity'] <= 0.2:
-        risk_scores['Total Debt'] = 1
-    elif 0.2 < stock_info['totalDebt'] / stock_info['equity'] <= 0.5:
-        risk_scores['Total Debt'] = 2
-    elif 0.5 < stock_info['totalDebt'] / stock_info['equity'] <= 0.7:
-        risk_scores['Total Debt'] = 3
-    else:
-        risk_scores['Total Debt'] = 4
+# Streamlit app
+st.title('Stock Risk Metrics Dashboard')
 
-    # Profitability Risk Metrics
-    if stock_info['profitMargins'] > 0.20:
-        risk_scores['Profit Margins'] = 1
-    elif 0.10 <= stock_info['profitMargins'] <= 0.20:
-        risk_scores['Profit Margins'] = 2
-    elif 0.05 <= stock_info['profitMargins'] < 0.10:
-        risk_scores['Profit Margins'] = 3
-    else:
-        risk_scores['Profit Margins'] = 4
+# Select stock symbol
+stock_symbol = st.selectbox('Select Stock Symbol', stock_data['symbol'].unique())
 
-    if stock_info['grossMargins'] > 0.50:
-        risk_scores['Gross Margins'] = 1
-    elif 0.30 <= stock_info['grossMargins'] <= 0.50:
-        risk_scores['Gross Margins'] = 2
-    elif 0.20 <= stock_info['grossMargins'] < 0.30:
-        risk_scores['Gross Margins'] = 3
-    else:
-        risk_scores['Gross Margins'] = 4
+# Filter the stock data based on the selected symbol
+stock_info = stock_data[stock_data['symbol'] == stock_symbol].iloc[0]
 
-    if stock_info['ebitdaMargins'] > 0.30:
-        risk_scores['EBITDA Margins'] = 1
-    elif 0.20 <= stock_info['ebitdaMargins'] <= 0.30:
-        risk_scores['EBITDA Margins'] = 2
-    elif 0.10 <= stock_info['ebitdaMargins'] < 0.20:
-        risk_scores['EBITDA Margins'] = 3
-    else:
-        risk_scores['EBITDA Margins'] = 4
+# Calculate risk metrics for the selected stock
+risk_metrics = calculate_risk_metrics(stock_info)
 
-    if stock_info['returnOnAssets'] > 0.10:
-        risk_scores['Return on Assets (ROA)'] = 1
-    elif 0.05 <= stock_info['returnOnAssets'] <= 0.10:
-        risk_scores['Return on Assets (ROA)'] = 2
-    elif 0.02 <= stock_info['returnOnAssets'] < 0.05:
-        risk_scores['Return on Assets (ROA)'] = 3
-    else:
-        risk_scores['Return on Assets (ROA)'] = 4
+# Display risk scores and descriptions
+for metric, (score, description) in risk_metrics.items():
+    st.write(f"**{metric}:** Score {score} - {description}")
 
-    if stock_info['returnOnEquity'] > 0.15:
-        risk_scores['Return on Equity (ROE)'] = 1
-    elif 0.10 <= stock_info['returnOnEquity'] <= 0.15:
-        risk_scores['Return on Equity (ROE)'] = 2
-    elif 0.05 <= stock_info['returnOnEquity'] < 0.10:
-        risk_scores['Return on Equity (ROE)'] = 3
-    else:
-        risk_scores['Return on Equity (ROE)'] = 4
-
-    # Valuation Risk Metrics
-    if stock_info['trailingPE'] < 10:
-        risk_scores['Price-to-Earnings Ratio (P/E)'] = 1
-    elif 10 <= stock_info['trailingPE'] < 20:
-        risk_scores['Price-to-Earnings Ratio (P/E)'] = 2
-    elif 20 <= stock_info['trailingPE'] < 30:
-        risk_scores['Price-to-Earnings Ratio (P/E)'] = 3
-    else:
-        risk_scores['Price-to-Earnings Ratio (P/E)'] = 4
-
-    if stock_info['priceToBook'] < 1:
-        risk_scores['Price-to-Book Ratio'] = 1
-    elif 1 <= stock_info['priceToBook'] < 2:
-        risk_scores['Price-to-Book Ratio'] = 2
-    elif 2 <= stock_info['priceToBook'] < 4:
-        risk_scores['Price-to-Book Ratio'] = 3
-    else:
-        risk_scores['Price-to-Book Ratio'] = 4
-
-    if stock_info['priceToSalesTrailing12Months'] < 1:
-        risk_scores['Price-to-Sales Ratio'] = 1
-    elif 1 <= stock_info['priceToSalesTrailing12Months'] < 2:
-        risk_scores['Price-to-Sales Ratio'] = 2
-    elif 2 <= stock_info['priceToSalesTrailing12Months'] < 4:
-        risk_scores['Price-to-Sales Ratio'] = 3
-    else:
-        risk_scores['Price-to-Sales Ratio'] = 4
-
-    # Total Risk Score
-    total_score = sum(risk_scores.values())
-
-    return risk_scores, total_score
-
-# Function to create risk meter bars
-def display_risk_meter(title, score, max_score=4):
-    st.subheader(title)
-    bar_color = '#FF0000' if score == max_score else '#FFFF00' if score > max_score / 2 else '#00FF00'
-    st.write(f"Score: {score}/{max_score}")
-    st.progress(score / max_score, bar_color=bar_color)
-
-# Load data
-stock_data = load_data('all_stocks_data.xlsx')
-
-st.title('Stock Risk Assessment')
-
-# Allow the user to search and select a stock symbol
-stock_symbol = st.selectbox('Select Stock Symbol', stock_data['Symbol'].unique())
-
-# Filter stock data based on the selected symbol
-stock_info = stock_data[stock_data['Symbol'] == stock_symbol].iloc[0]
-
-# Calculate risk metrics
-risk_scores, total_score = calculate_risk_metrics(stock_info)
-
-# Display risk metrics
-for metric, score in risk_scores.items():
-    display_risk_meter(metric, score)
-
-# Display total risk score
-st.subheader('Total Risk Score')
-st.write(f"Total Score: {total_score}/{len(risk_scores) * 4}")
-
-# Display stock information
-st.subheader('Stock Information')
-st.write(stock_info)
-
+    # Display a risk meter bar
+    bar_color = '#00FF00' if score == 1 else '#FFFF00' if score == 2 else '#FF8000' if score == 3 else '#FF0000'
+    st.markdown(
+        f"""
+        <div style="background-color:{bar_color}; width: {score * 20}%; height: 20px; border-radius: 5px;"></div>
+        """, unsafe_allow_html=True
+    )
