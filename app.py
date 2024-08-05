@@ -1,399 +1,141 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 
-# Load the stock data from Excel
-file_path = 'all_stocks_data.xlsx'  # Update this path as needed
-stock_data = pd.read_excel(file_path)
+# Load data from Excel
+@st.cache_data
+def load_data():
+    file_path = 'all_stocks_data.xlsx'
+    return pd.read_excel(file_path)
 
-# Print column names to verify
-print("Column Names:", stock_data.columns.tolist())
+df = load_data()
 
-def calculate_risk_metrics(stock):
-    metrics = {}
+# Function to calculate risk metrics
+def calculate_risk_metrics(stock_data):
+    risk_scores = {
+        'Market Risk': 0,
+        'Liquidity Risk': 0,
+        'Leverage Risk': 0,
+        'Profitability Risk': 0,
+        'Valuation Risk': 0,
+        'Dividend Risk': 0,
+        'Operational Risk': 0,
+        'Financial Health': 0,
+        'Sector & Industry Risk': 0,
+        'Valuation vs Industry Metrics': 0
+    }
 
     # Market Risk Metrics
-    beta = stock.get('beta', None)
-    if beta is not None:
-        if beta < 0.5:
-            metrics['Beta'] = (1, 'Low Risk')
-        elif 0.5 <= beta < 0.9:
-            metrics['Beta'] = (2, 'Moderate Risk')
-        elif 0.9 <= beta < 1.5:
-            metrics['Beta'] = (3, 'High Risk')
-        else:
-            metrics['Beta'] = (4, 'Very High Risk')
+    beta = stock_data['beta']
+    week_change = stock_data['52WeekChange']
+    volatility = stock_data['dayHigh'] - stock_data['dayLow']
+    avg_volume = stock_data['averageVolume']
 
-    change_52_week = stock.get('52_Week_Change', None)
-    if change_52_week is not None:
-        if change_52_week > 20:
-            metrics['52-Week Change'] = (1, 'High Positive Performance')
-        elif 0 <= change_52_week <= 20:
-            metrics['52-Week Change'] = (2, 'Positive Performance')
-        elif -10 <= change_52_week < 0:
-            metrics['52-Week Change'] = (3, 'Negative Performance')
-        else:
-            metrics['52-Week Change'] = (4, 'High Negative Performance')
-
-    day_high = stock.get('Day_High', None)
-    day_low = stock.get('Day_Low', None)
-    avg_volume = stock.get('Average_Volume', None)
-    if day_high is not None and day_low is not None and avg_volume is not None:
-        volatility = day_high - day_low
-        if volatility < avg_volume:
-            metrics['Price Volatility'] = (1, 'Low Volatility')
-        elif avg_volume <= volatility < 2 * avg_volume:
-            metrics['Price Volatility'] = (2, 'Moderate Volatility')
-        else:
-            metrics['Price Volatility'] = (3, 'High Volatility')
+    risk_scores['Market Risk'] += 1 if beta < 0.5 else (2 if beta < 0.9 else (3 if beta < 1.5 else 4))
+    risk_scores['Market Risk'] += 1 if week_change > 20 else (2 if week_change > 0 else (3 if week_change > -10 else 4))
+    risk_scores['Market Risk'] += 1 if volatility < avg_volume else (2 if volatility < 2 * avg_volume else 3)
 
     # Liquidity Risk Metrics
-    current_ratio = stock.get('Current_Ratio', None)
-    if current_ratio is not None:
-        if current_ratio > 3:
-            metrics['Current Ratio'] = (1, 'Excellent Liquidity')
-        elif 2 <= current_ratio <= 3:
-            metrics['Current Ratio'] = (2, 'Good Liquidity')
-        elif 1 <= current_ratio < 2:
-            metrics['Current Ratio'] = (3, 'Adequate Liquidity')
-        else:
-            metrics['Current Ratio'] = (4, 'Poor Liquidity')
+    current_ratio = stock_data['currentRatio']
+    quick_ratio = stock_data['quickRatio']
+    volume = stock_data['volume']
 
-    quick_ratio = stock.get('Quick_Ratio', None)
-    if quick_ratio is not None:
-        if quick_ratio > 1.5:
-            metrics['Quick Ratio'] = (1, 'Excellent Liquidity')
-        elif 1 <= quick_ratio <= 1.5:
-            metrics['Quick Ratio'] = (2, 'Good Liquidity')
-        elif 0.5 <= quick_ratio < 1:
-            metrics['Quick Ratio'] = (3, 'Adequate Liquidity')
-        else:
-            metrics['Quick Ratio'] = (4, 'Poor Liquidity')
-
-    volume = stock.get('Volume', None)
-    if volume is not None and avg_volume is not None:
-        if volume > 3 * avg_volume:
-            metrics['Volume vs. Average Volume'] = (1, 'High Liquidity')
-        elif 2 * avg_volume <= volume <= 3 * avg_volume:
-            metrics['Volume vs. Average Volume'] = (2, 'Good Liquidity')
-        elif avg_volume <= volume < 2 * avg_volume:
-            metrics['Volume vs. Average Volume'] = (3, 'Moderate Liquidity')
-        else:
-            metrics['Volume vs. Average Volume'] = (4, 'Low Liquidity')
+    risk_scores['Liquidity Risk'] += 1 if current_ratio > 3 else (2 if current_ratio > 2 else (3 if current_ratio > 1 else 4))
+    risk_scores['Liquidity Risk'] += 1 if quick_ratio > 1.5 else (2 if quick_ratio > 1 else (3 if quick_ratio > 0.5 else 4))
+    risk_scores['Liquidity Risk'] += 1 if volume > 3 * avg_volume else (2 if volume > 2 * avg_volume else (3 if volume > avg_volume else 4))
 
     # Leverage Risk Metrics
-    debt_to_equity = stock.get('Debt_to_Equity', None)
-    if debt_to_equity is not None:
-        if debt_to_equity < 0.3:
-            metrics['Debt-to-Equity Ratio'] = (1, 'Low Leverage')
-        elif 0.3 <= debt_to_equity < 0.6:
-            metrics['Debt-to-Equity Ratio'] = (2, 'Moderate Leverage')
-        elif 0.6 <= debt_to_equity < 1.0:
-            metrics['Debt-to-Equity Ratio'] = (3, 'High Leverage')
-        else:
-            metrics['Debt-to-Equity Ratio'] = (4, 'Very High Leverage')
+    debt_to_equity = stock_data['debtToEquity']
+    total_debt = stock_data['totalDebt']
+    book_value = stock_data['bookValue']
 
-    total_debt = stock.get('Total_Debt', None)
-    equity = stock.get('Equity', None)
-    if total_debt is not None and equity is not None:
-        debt_to_equity_ratio = total_debt / equity
-        if debt_to_equity_ratio <= 0.2:
-            metrics['Total Debt'] = (1, 'Low Risk')
-        elif 0.2 < debt_to_equity_ratio <= 0.5:
-            metrics['Total Debt'] = (2, 'Moderate Risk')
-        elif 0.5 < debt_to_equity_ratio <= 0.7:
-            metrics['Total Debt'] = (3, 'High Risk')
-        else:
-            metrics['Total Debt'] = (4, 'Very High Risk')
+    risk_scores['Leverage Risk'] += 1 if debt_to_equity < 0.3 else (2 if debt_to_equity < 0.6 else (3 if debt_to_equity < 1.0 else 4))
+    equity = stock_data['bookValue'] * stock_data['sharesOutstanding'] - stock_data['totalDebt']
+    risk_scores['Leverage Risk'] += 1 if total_debt <= 0.2 * equity else (2 if total_debt <= 0.5 * equity else (3 if total_debt <= 0.7 * equity else 4))
 
     # Profitability Risk Metrics
-    profit_margin = stock.get('Profit_Margin', None)
-    if profit_margin is not None:
-        if profit_margin > 20:
-            metrics['Profit Margin'] = (1, 'High Profitability')
-        elif 10 <= profit_margin <= 20:
-            metrics['Profit Margin'] = (2, 'Good Profitability')
-        elif 5 <= profit_margin < 10:
-            metrics['Profit Margin'] = (3, 'Moderate Profitability')
-        else:
-            metrics['Profit Margin'] = (4, 'Low Profitability')
+    profit_margin = stock_data['profitMargins']
+    gross_margin = stock_data['grossMargins']
+    ebitda_margin = stock_data['ebitdaMargins']
+    roa = stock_data['returnOnAssets']
+    roe = stock_data['returnOnEquity']
 
-    gross_margin = stock.get('Gross_Margin', None)
-    if gross_margin is not None:
-        if gross_margin > 50:
-            metrics['Gross Margin'] = (1, 'High Margins')
-        elif 30 <= gross_margin <= 50:
-            metrics['Gross Margin'] = (2, 'Good Margins')
-        elif 20 <= gross_margin < 30:
-            metrics['Gross Margin'] = (3, 'Moderate Margins')
-        else:
-            metrics['Gross Margin'] = (4, 'Low Margins')
-
-    ebitda_margin = stock.get('EBITDA_Margin', None)
-    if ebitda_margin is not None:
-        if ebitda_margin > 30:
-            metrics['EBITDA Margin'] = (1, 'High Margins')
-        elif 20 <= ebitda_margin <= 30:
-            metrics['EBITDA Margin'] = (2, 'Good Margins')
-        elif 10 <= ebitda_margin < 20:
-            metrics['EBITDA Margin'] = (3, 'Moderate Margins')
-        else:
-            metrics['EBITDA Margin'] = (4, 'Low Margins')
-
-    roa = stock.get('ROA', None)
-    if roa is not None:
-        if roa > 10:
-            metrics['Return on Assets (ROA)'] = (1, 'High Return')
-        elif 5 <= roa <= 10:
-            metrics['Return on Assets (ROA)'] = (2, 'Good Return')
-        elif 2 <= roa < 5:
-            metrics['Return on Assets (ROA)'] = (3, 'Moderate Return')
-        else:
-            metrics['Return on Assets (ROA)'] = (4, 'Low Return')
-
-    roe = stock.get('ROE', None)
-    if roe is not None:
-        if roe > 15:
-            metrics['Return on Equity (ROE)'] = (1, 'High Return')
-        elif 10 <= roe <= 15:
-            metrics['Return on Equity (ROE)'] = (2, 'Good Return')
-        elif 5 <= roe < 10:
-            metrics['Return on Equity (ROE)'] = (3, 'Moderate Return')
-        else:
-            metrics['Return on Equity (ROE)'] = (4, 'Low Return')
+    risk_scores['Profitability Risk'] += 1 if profit_margin > 20 else (2 if profit_margin > 10 else (3 if profit_margin > 5 else 4))
+    risk_scores['Profitability Risk'] += 1 if gross_margin > 50 else (2 if gross_margin > 30 else (3 if gross_margin > 20 else 4))
+    risk_scores['Profitability Risk'] += 1 if ebitda_margin > 30 else (2 if ebitda_margin > 20 else (3 if ebitda_margin > 10 else 4))
+    risk_scores['Profitability Risk'] += 1 if roa > 10 else (2 if roa > 5 else (3 if roa > 2 else 4))
+    risk_scores['Profitability Risk'] += 1 if roe > 15 else (2 if roe > 10 else (3 if roe > 5 else 4))
 
     # Valuation Risk Metrics
-    pe_ratio = stock.get('P_E_Ratio', None)
-    if pe_ratio is not None:
-        if pe_ratio < 10:
-            metrics['Price-to-Earnings Ratio (P/E)'] = (1, 'Undervalued')
-        elif 10 <= pe_ratio < 20:
-            metrics['Price-to-Earnings Ratio (P/E)'] = (2, 'Fairly Valued')
-        elif 20 <= pe_ratio < 30:
-            metrics['Price-to-Earnings Ratio (P/E)'] = (3, 'Overvalued')
-        else:
-            metrics['Price-to-Earnings Ratio (P/E)'] = (4, 'Highly Overvalued')
+    pe_ratio = stock_data['forwardPE']
+    price_to_book = stock_data['priceToBook']
+    price_to_sales = stock_data['priceToSalesTrailing12Months']
+    trailing_pe = stock_data['trailingPE']
 
-    price_to_book = stock.get('Price_to_Book', None)
-    if price_to_book is not None:
-        if price_to_book < 1:
-            metrics['Price-to-Book Ratio'] = (1, 'Undervalued')
-        elif 1 <= price_to_book < 2:
-            metrics['Price-to-Book Ratio'] = (2, 'Fairly Valued')
-        elif 2 <= price_to_book < 4:
-            metrics['Price-to-Book Ratio'] = (3, 'Overvalued')
-        else:
-            metrics['Price-to-Book Ratio'] = (4, 'Highly Overvalued')
-
-    price_to_sales = stock.get('Price_to_Sales', None)
-    if price_to_sales is not None:
-        if price_to_sales < 1:
-            metrics['Price-to-Sales Ratio'] = (1, 'Undervalued')
-        elif 1 <= price_to_sales < 2:
-            metrics['Price-to-Sales Ratio'] = (2, 'Fairly Valued')
-        elif 2 <= price_to_sales < 4:
-            metrics['Price-to-Sales Ratio'] = (3, 'Overvalued')
-        else:
-            metrics['Price-to-Sales Ratio'] = (4, 'Highly Overvalued')
-
-    trailing_pe = stock.get('Trailing_PE', None)
-    if trailing_pe is not None:
-        if trailing_pe < 10:
-            metrics['Trailing PE'] = (1, 'Undervalued')
-        elif 10 <= trailing_pe < 20:
-            metrics['Trailing PE'] = (2, 'Fairly Valued')
-        elif 20 <= trailing_pe < 30:
-            metrics['Trailing PE'] = (3, 'Overvalued')
-        else:
-            metrics['Trailing PE'] = (4, 'Highly Overvalued')
+    risk_scores['Valuation Risk'] += 1 if pe_ratio < 10 else (2 if pe_ratio < 20 else (3 if pe_ratio < 30 else 4))
+    risk_scores['Valuation Risk'] += 1 if price_to_book < 1 else (2 if price_to_book < 2 else (3 if price_to_book < 4 else 4))
+    risk_scores['Valuation Risk'] += 1 if price_to_sales < 1 else (2 if price_to_sales < 2 else (3 if price_to_sales < 4 else 4))
+    risk_scores['Valuation Risk'] += 1 if trailing_pe < 10 else (2 if trailing_pe < 20 else (3 if trailing_pe < 30 else 4))
 
     # Dividend Risk Metrics
-    dividend_payout_ratio = stock.get('Dividend_Payout_Ratio', None)
-    if dividend_payout_ratio is not None:
-        if dividend_payout_ratio < 30:
-            metrics['Dividend Payout Ratio'] = (1, 'Low Risk')
-        elif 30 <= dividend_payout_ratio < 50:
-            metrics['Dividend Payout Ratio'] = (2, 'Moderate Risk')
-        elif 50 <= dividend_payout_ratio < 70:
-            metrics['Dividend Payout Ratio'] = (3, 'High Risk')
-        else:
-            metrics['Dividend Payout Ratio'] = (4, 'Very High Risk')
+    payout_ratio = stock_data['payoutRatio']
+    dividend_yield = stock_data['fiveYearAvgDividendYield']
+    dividend_history = 'Stable'  # Assume stable for simplicity
 
-    trailing_dividend_yield = stock.get('Trailing_Annual_Dividend_Yield', None)
-    if trailing_dividend_yield is not None:
-        if trailing_dividend_yield > 6:
-            metrics['Trailing Annual Dividend Yield'] = (1, 'High Yield')
-        elif 4 <= trailing_dividend_yield <= 6:
-            metrics['Trailing Annual Dividend Yield'] = (2, 'Moderate Yield')
-        elif 2 <= trailing_dividend_yield < 4:
-            metrics['Trailing Annual Dividend Yield'] = (3, 'Low Yield')
-        else:
-            metrics['Trailing Annual Dividend Yield'] = (4, 'Very Low Yield')
-
-    dividend_history = stock.get('Dividend_History', None)
-    if dividend_history is not None:
-        if dividend_history == 'Stable or Increasing':
-            metrics['Dividend History'] = (1, 'Low Risk')
-        elif dividend_history == 'Mixed':
-            metrics['Dividend History'] = (2, 'Moderate Risk')
-        elif dividend_history == 'Irregular':
-            metrics['Dividend History'] = (3, 'High Risk')
-        else:
-            metrics['Dividend History'] = (4, 'Very High Risk')
+    risk_scores['Dividend Risk'] += 1 if payout_ratio < 0.3 else (2 if payout_ratio < 0.5 else (3 if payout_ratio < 0.7 else 4))
+    risk_scores['Dividend Risk'] += 1 if dividend_yield > 0.06 else (2 if dividend_yield > 0.04 else (3 if dividend_yield > 0.02 else 4))
+    risk_scores['Dividend Risk'] += 1 if dividend_history == 'Stable' else (2 if dividend_history == 'Mixed' else (3 if dividend_history == 'Irregular' else 4))
 
     # Operational Risk Metrics
-    operating_cash_flow = stock.get('Operating_Cash_Flow', None)
-    if operating_cash_flow is not None:
-        if operating_cash_flow > 0 and stock.get('Operating_Cash_Flow_Growth', 0) > 0:
-            metrics['Operating Cash Flow'] = (1, 'Low Risk')
-        elif operating_cash_flow > 0:
-            metrics['Operating Cash Flow'] = (2, 'Moderate Risk')
-        elif operating_cash_flow <= 0 and stock.get('Operating_Cash_Flow_Growth', 0) < 0:
-            metrics['Operating Cash Flow'] = (3, 'High Risk')
-        else:
-            metrics['Operating Cash Flow'] = (4, 'Very High Risk')
+    operating_cashflow = stock_data['operatingCashflow']
+    free_cashflow = stock_data['freeCashflow']
+    revenue_growth = stock_data['revenueGrowth']
 
-    free_cash_flow = stock.get('Free_Cash_Flow', None)
-    if free_cash_flow is not None:
-        if free_cash_flow > 0 and stock.get('Free_Cash_Flow_Growth', 0) > 0:
-            metrics['Free Cash Flow'] = (1, 'Low Risk')
-        elif free_cash_flow > 0:
-            metrics['Free Cash Flow'] = (2, 'Moderate Risk')
-        elif free_cash_flow < 0 and stock.get('Free_Cash_Flow_Growth', 0) < 0:
-            metrics['Free Cash Flow'] = (3, 'High Risk')
-        else:
-            metrics['Free Cash Flow'] = (4, 'Very High Risk')
-
-    revenue_growth = stock.get('Revenue_Growth', None)
-    if revenue_growth is not None:
-        if revenue_growth > 15:
-            metrics['Revenue Growth'] = (1, 'High Growth')
-        elif 10 <= revenue_growth <= 15:
-            metrics['Revenue Growth'] = (2, 'Good Growth')
-        elif 5 <= revenue_growth < 10:
-            metrics['Revenue Growth'] = (3, 'Moderate Growth')
-        else:
-            metrics['Revenue Growth'] = (4, 'Low Growth')
+    risk_scores['Operational Risk'] += 1 if operating_cashflow > 0 and operating_cashflow > free_cashflow else (2 if operating_cashflow > 0 else (3 if operating_cashflow == 0 else 4))
+    risk_scores['Operational Risk'] += 1 if free_cashflow > 0 and free_cashflow > operating_cashflow else (2 if free_cashflow > 0 else (3 if free_cashflow < 0 else 4))
+    risk_scores['Operational Risk'] += 1 if revenue_growth > 0.15 else (2 if revenue_growth > 0.1 else (3 if revenue_growth > 0.05 else 4))
 
     # Financial Health Metrics
-    book_value = stock.get('Book_Value', None)
-    if book_value is not None:
-        if book_value > stock.get('Book_Value_Prior', 0):
-            metrics['Book Value'] = (1, 'Low Risk')
-        elif book_value == stock.get('Book_Value_Prior', 0):
-            metrics['Book Value'] = (2, 'Moderate Risk')
-        elif book_value < stock.get('Book_Value_Prior', 0):
-            metrics['Book Value'] = (3, 'High Risk')
-        else:
-            metrics['Book Value'] = (4, 'Very High Risk')
+    book_value = stock_data['bookValue']
+    enterprise_value = stock_data['enterpriseValue']
+    total_cash = stock_data['totalCash']
 
-    enterprise_value = stock.get('Enterprise_Value', None)
-    market_cap = stock.get('Market_Cap', None)
-    if enterprise_value is not None and market_cap is not None:
-        if enterprise_value < market_cap * 1.1:
-            metrics['Enterprise Value'] = (1, 'Low Risk')
-        elif enterprise_value < market_cap * 1.3:
-            metrics['Enterprise Value'] = (2, 'Moderate Risk')
-        elif enterprise_value < market_cap * 1.5:
-            metrics['Enterprise Value'] = (3, 'High Risk')
-        else:
-            metrics['Enterprise Value'] = (4, 'Very High Risk')
+    risk_scores['Financial Health'] += 1 if book_value > stock_data['bookValue'] else (2 if book_value == stock_data['bookValue'] else (3 if book_value < stock_data['bookValue'] else 4))
+    risk_scores['Financial Health'] += 1 if enterprise_value >= stock_data['marketCap'] else (2 if enterprise_value < 1.1 * stock_data['marketCap'] else (3 if enterprise_value > 1.5 * stock_data['marketCap'] else 4))
+    risk_scores['Financial Health'] += 1 if total_cash > 0.3 * stock_data['totalLiabilities'] else (2 if total_cash > 0.15 * stock_data['totalLiabilities'] else (3 if total_cash > 0.05 * stock_data['totalLiabilities'] else 4))
 
-    total_cash = stock.get('Total_Cash', None)
-    total_liabilities = stock.get('Total_Liabilities', None)
-    if total_cash is not None and total_liabilities is not None:
-        cash_ratio = total_cash / total_liabilities
-        if cash_ratio > 0.3:
-            metrics['Total Cash'] = (1, 'High Liquidity')
-        elif 0.15 <= cash_ratio <= 0.3:
-            metrics['Total Cash'] = (2, 'Good Liquidity')
-        elif 0.05 <= cash_ratio < 0.15:
-            metrics['Total Cash'] = (3, 'Moderate Liquidity')
-        else:
-            metrics['Total Cash'] = (4, 'Low Liquidity')
+    # Sector & Industry Risk Metrics
+    industry_avg_debt_to_equity = stock_data['industry_debtToEquity']
+    sector_avg_debt_to_equity = stock_data['industry_debtToEquity']
 
-    # Sector and Industry Risk Metrics
-    industry_avg = stock.get('Industry_Average', None)
-    revenue_per_share = stock.get('Revenue_Per_Share', None)
-    if industry_avg is not None and revenue_per_share is not None:
-        if revenue_per_share > industry_avg:
-            metrics['Revenue Per Share'] = (1, 'High Performance')
-        elif revenue_per_share == industry_avg:
-            metrics['Revenue Per Share'] = (2, 'Moderate Performance')
-        else:
-            metrics['Revenue Per Share'] = (3, 'Low Performance')
+    risk_scores['Sector & Industry Risk'] += 1 if debt_to_equity < industry_avg_debt_to_equity else (2 if debt_to_equity == industry_avg_debt_to_equity else (3 if debt_to_equity > industry_avg_debt_to_equity else 4))
 
-    # Valuation vs. Industry Metrics
-    industry_forward_pe = stock.get('Industry_Forward_PE', None)
-    if industry_forward_pe is not None:
-        if pe_ratio < industry_forward_pe:
-            metrics['Industry Forward PE'] = (1, 'Undervalued')
-        elif pe_ratio == industry_forward_pe:
-            metrics['Industry Forward PE'] = (2, 'Fairly Valued')
-        else:
-            metrics['Industry Forward PE'] = (3, 'Overvalued')
+    # Valuation vs Industry Metrics
+    industry_forward_pe = stock_data['industry_forwardPE']
+    industry_trailing_pe = stock_data['industry_trailingPE']
+    industry_avg_debt_to_equity = stock_data['industry_debtToEquity']
 
-    industry_trailing_pe = stock.get('Industry_Trailing_PE', None)
-    if industry_trailing_pe is not None:
-        if pe_ratio < industry_trailing_pe:
-            metrics['Industry Trailing PE'] = (1, 'Undervalued')
-        elif pe_ratio == industry_trailing_pe:
-            metrics['Industry Trailing PE'] = (2, 'Fairly Valued')
-        else:
-            metrics['Industry Trailing PE'] = (3, 'Overvalued')
+    risk_scores['Valuation vs Industry Metrics'] += 1 if pe_ratio < industry_forward_pe else (2 if pe_ratio == industry_forward_pe else (3 if pe_ratio > industry_forward_pe else 4))
+    risk_scores['Valuation vs Industry Metrics'] += 1 if pe_ratio < industry_trailing_pe else (2 if pe_ratio == industry_trailing_pe else (3 if pe_ratio > industry_trailing_pe else 4))
+    risk_scores['Valuation vs Industry Metrics'] += 1 if debt_to_equity < industry_avg_debt_to_equity else (2 if debt_to_equity == industry_avg_debt_to_equity else (3 if debt_to_equity > industry_avg_debt_to_equity else 4))
 
-    industry_debt_to_equity = stock.get('Industry_Debt_to_Equity', None)
-    if industry_debt_to_equity is not None:
-        if debt_to_equity < industry_debt_to_equity:
-            metrics['Industry Debt-to-Equity'] = (1, 'Low Risk')
-        elif debt_to_equity == industry_debt_to_equity:
-            metrics['Industry Debt-to-Equity'] = (2, 'Moderate Risk')
-        else:
-            metrics['Industry Debt-to-Equity'] = (3, 'High Risk')
+    return risk_scores
 
-    return metrics
+# Streamlit app
+st.title('Stock Risk Assessment')
 
-def risk_meter(score):
-    if score == 1:
-        return "🔴"  # Red for High Risk
-    elif score == 2:
-        return "🟠"  # Orange for Moderate Risk
-    elif score == 3:
-        return "🟡"  # Yellow for Low Risk
-    else:
-        return "🟢"  # Green for Very Low Risk
+# Select stock
+stock_symbol = st.selectbox('Select Stock Symbol', df['Symbol'].unique())
+stock_data = df[df['Symbol'] == stock_symbol].iloc[0]
 
-def display_risk_meters(metrics):
-    for metric, (score, description) in metrics.items():
-        print(f"{metric}: {description} {risk_meter(score)}")
+# Calculate risk metrics
+risk_scores = calculate_risk_metrics(stock_data)
 
-# Example usage
-stock = {
-    'Beta': 1.2,
-    '52_Week_Change': 12,
-    'Price_to_Earnings': 18,
-    'Price_to_Book': 2.5,
-    'Price_to_Sales': 1.8,
-    'Trailing_PE': 22,
-    'Dividend_Payout_Ratio': 35,
-    'Trailing_Annual_Dividend_Yield': 4.5,
-    'Dividend_History': 'Mixed',
-    'Operating_Cash_Flow': 150000,
-    'Operating_Cash_Flow_Growth': 10,
-    'Free_Cash_Flow': 120000,
-    'Free_Cash_Flow_Growth': 8,
-    'Revenue_Growth': 12,
-    'Book_Value': 500000,
-    'Book_Value_Prior': 450000,
-    'Enterprise_Value': 1200000,
-    'Market_Cap': 1100000,
-    'Total_Cash': 350000,
-    'Total_Liabilities': 1000000,
-    'Industry_Average': 1000,
-    'Revenue_Per_Share': 1200,
-    'Industry_Forward_PE': 17,
-    'Industry_Trailing_PE': 20,
-    'Industry_Debt_to_Equity': 0.6
-}
+# Display results
+st.subheader(f'Risk Metrics for {stock_symbol}')
 
-metrics = calculate_risk_metrics(stock)
-display_risk_meters(metrics)
+for metric, score in risk_scores.items():
+    st.write(f'{metric}: {score}')
+
+    # Risk meter bar
+    bar_color = 'green' if score <= 3 else 'orange' if score <= 6 else 'red'
+    st.progress((10 - score) * 10, text=f'{metric}: {score}', color=bar_color)
