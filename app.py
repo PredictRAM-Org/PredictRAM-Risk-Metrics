@@ -1,184 +1,122 @@
 import streamlit as st
 import pandas as pd
 
-# Load data
-df = pd.read_excel('all_stocks_data.xlsx')
+# Load data from the Excel file
+@st.cache_data
+def load_data():
+    df = pd.read_excel("all_stocks_data.xlsx", engine='openpyxl')
+    return df
 
-# Function to calculate risk score
-def calculate_risk_score(row):
-    # Market Risk
-    market_risk = 0
-    if row['Beta'] > 1.5:
-        market_risk += 5
-    elif 1 < row['Beta'] <= 1.5:
-        market_risk += 3
-    else:
-        market_risk += 1
-    
-    if row['Volatility (%)'] > 30:
-        market_risk += 5
-    elif 15 < row['Volatility (%)'] <= 30:
-        market_risk += 3
-    else:
-        market_risk += 1
+data = load_data()
 
-    # Liquidity Risk
-    liquidity_risk = 0
-    if row['Volume'] < 100000:
-        liquidity_risk += 5
-    elif 100000 <= row['Volume'] < 1000000:
-        liquidity_risk += 3
-    else:
-        liquidity_risk += 1
-    
-    if row['Volume'] < row['Average Volume'] or row['Volume'] < row['Average Volume 10 days']:
-        liquidity_risk += 5
-    else:
-        liquidity_risk += 1
+# Title of the app
+st.title("Stock Risk Metrics Dashboard")
 
-    # Leverage Risk
-    leverage_risk = 0
-    if row['Debt to Equity'] > 2:
-        leverage_risk += 5
-    elif 1 < row['Debt to Equity'] <= 2:
-        leverage_risk += 3
-    else:
-        leverage_risk += 1
-    
-    if row['Interest Coverage'] < 1.5:
-        leverage_risk += 5
-    elif 1.5 <= row['Interest Coverage'] < 3:
-        leverage_risk += 3
-    else:
-        leverage_risk += 1
+# Select stock
+stock_options = data['symbol'].unique()
+selected_stock = st.selectbox('Select a stock:', stock_options)
 
-    # Profitability Risk
-    profitability_risk = 0
-    if row['Profit Margins'] < 5:
-        profitability_risk += 5
-    elif 5 <= row['Profit Margins'] < 10:
-        profitability_risk += 3
-    else:
-        profitability_risk += 1
-    
-    if row['ROE'] < 10:
-        profitability_risk += 5
-    elif 10 <= row['ROE'] < 20:
-        profitability_risk += 3
-    else:
-        profitability_risk += 1
+# Filter data for the selected stock
+stock_data = data[data['symbol'] == selected_stock]
 
-    # Valuation Risk
-    valuation_risk = 0
-    if row['P/E Ratio'] > 25:
-        valuation_risk += 5
-    elif 15 < row['P/E Ratio'] <= 25:
-        valuation_risk += 3
-    else:
-        valuation_risk += 1
-    
-    if row['P/B Ratio'] > 3:
-        valuation_risk += 5
-    elif 1 < row['P/B Ratio'] <= 3:
-        valuation_risk += 3
-    else:
-        valuation_risk += 1
+# Functions to calculate risk metrics
+def market_risk(stock_data):
+    beta = stock_data['beta'].values[0]
+    fifty_two_week_range = (stock_data['fiftyTwoWeekHigh'].values[0] - stock_data['fiftyTwoWeekLow'].values[0]) / stock_data['fiftyTwoWeekLow'].values[0]
+    return beta, fifty_two_week_range
 
-    # Dividend Risk
-    dividend_risk = 0
-    if row['Dividend Yield'] < 2:
-        dividend_risk += 5
-    elif 2 <= row['Dividend Yield'] < 4:
-        dividend_risk += 3
-    else:
-        dividend_risk += 1
-    
-    if row['Payout Ratio'] > 70:
-        dividend_risk += 5
-    elif 50 < row['Payout Ratio'] <= 70:
-        dividend_risk += 3
-    else:
-        dividend_risk += 1
+def liquidity_risk(stock_data):
+    current_volume = stock_data['regularMarketVolume'].values[0]
+    avg_volume = stock_data['averageVolume'].values[0]
+    bid_ask_spread = stock_data['ask'].values[0] - stock_data['bid'].values[0]
+    return current_volume, avg_volume, bid_ask_spread
 
-    # Operational Risk
-    operational_risk = 0
-    if row['Revenue Growth'] < 5:
-        operational_risk += 5
-    elif 5 <= row['Revenue Growth'] < 10:
-        operational_risk += 3
-    else:
-        operational_risk += 1
-    
-    if row['EPS Growth'] < 5:
-        operational_risk += 5
-    elif 5 <= row['EPS Growth'] < 10:
-        operational_risk += 3
-    else:
-        operational_risk += 1
+def leverage_risk(stock_data):
+    debt_to_equity = stock_data['debtToEquity'].values[0]
+    total_debt = stock_data['totalDebt'].values[0]
+    return debt_to_equity, total_debt
 
-    # Financial Health Metrics
-    financial_health_risk = 0
-    if row['Debt to Equity'] > 2:
-        financial_health_risk += 5
-    elif 1 < row['Debt to Equity'] <= 2:
-        financial_health_risk += 3
-    else:
-        financial_health_risk += 1
-    
-    if row['Current Ratio'] < 1:
-        financial_health_risk += 5
-    elif 1 <= row['Current Ratio'] < 2:
-        financial_health_risk += 3
-    else:
-        financial_health_risk += 1
+def profitability_risk(stock_data):
+    profit_margin = stock_data['profitMargins'].values[0]
+    roa = stock_data['returnOnAssets'].values[0]
+    return profit_margin, roa
 
-    # Sector and Industry Risk Metrics
-    sector_industry_risk = 0
-    if row['Industry Growth'] < 5:
-        sector_industry_risk += 5
-    elif 5 <= row['Industry Growth'] < 10:
-        sector_industry_risk += 3
-    else:
-        sector_industry_risk += 1
-    
-    if row['Industry PE'] > 25:
-        sector_industry_risk += 5
-    elif 15 < row['Industry PE'] <= 25:
-        sector_industry_risk += 3
-    else:
-        sector_industry_risk += 1
+def valuation_risk(stock_data):
+    pe_ratio = stock_data['trailingPE'].values[0]
+    price_to_sales = stock_data['priceToSalesTrailing12Months'].values[0]
+    return pe_ratio, price_to_sales
 
-    # Calculate total risk score
-    total_risk = (market_risk + liquidity_risk + leverage_risk + profitability_risk + valuation_risk + 
-                  dividend_risk + operational_risk + financial_health_risk + sector_industry_risk)
-    
-    return total_risk
+def dividend_risk(stock_data):
+    payout_ratio = stock_data['payoutRatio'].values[0]
+    dividend_yield = stock_data['trailingAnnualDividendYield'].values[0]
+    return payout_ratio, dividend_yield
 
-# Calculate risk scores for each stock
-df['Risk Score'] = df.apply(calculate_risk_score, axis=1)
+def operational_risk(stock_data):
+    operating_margin = stock_data['operatingMargins'].values[0]
+    roe = stock_data['returnOnEquity'].values[0]
+    return operating_margin, roe
 
-# Streamlit App
-st.title('Stock Risk Meter Dashboard')
+def financial_health_risk(stock_data):
+    quick_ratio = stock_data['quickRatio'].values[0]
+    current_ratio = stock_data['currentRatio'].values[0]
+    return quick_ratio, current_ratio
 
-# Stock Selection
-selected_stock = st.selectbox('Select a Stock', df['Symbol'])
+def sector_industry_risk(stock_data):
+    sector_pe = stock_data['industry_forwardPE'].values[0]
+    industry_debt_to_equity = stock_data['industry_debtToEquity'].values[0]
+    return sector_pe, industry_debt_to_equity
 
-# Display Risk Meter
-stock_data = df[df['Symbol'] == selected_stock].iloc[0]
-risk_score = stock_data['Risk Score']
+def valuation_vs_industry_risk(stock_data):
+    pe_vs_industry = stock_data['trailingPE'].values[0] / stock_data['industry_trailingPE'].values[0]
+    return pe_vs_industry
 
-st.subheader(f'Risk Score for {selected_stock}: {risk_score}')
-st.progress(risk_score / 45)  # Assuming maximum score is 45 (adjust accordingly based on weighting)
+# Display risk metrics in the dashboard view
+st.subheader("Market Risk")
+beta, fifty_two_week_range = market_risk(stock_data)
+st.write(f"Beta: {beta}")
+st.write(f"52-Week Range: {fifty_two_week_range:.2%}")
 
-# Additional Visualizations
-st.write('---')
-st.write('### Risk Category Breakdown')
-st.write(f'Market Risk: {market_risk}')
-st.write(f'Liquidity Risk: {liquidity_risk}')
-st.write(f'Leverage Risk: {leverage_risk}')
-st.write(f'Profitability Risk: {profitability_risk}')
-st.write(f'Valuation Risk: {valuation_risk}')
-st.write(f'Dividend Risk: {dividend_risk}')
-st.write(f'Operational Risk: {operational_risk}')
-st.write(f'Financial Health Risk: {financial_health_risk}')
-st.write(f'Sector & Industry Risk: {sector_industry_risk}')
+st.subheader("Liquidity Risk")
+current_volume, avg_volume, bid_ask_spread = liquidity_risk(stock_data)
+st.write(f"Current Volume: {current_volume}")
+st.write(f"Average Volume: {avg_volume}")
+st.write(f"Bid-Ask Spread: {bid_ask_spread}")
+
+st.subheader("Leverage Risk")
+debt_to_equity, total_debt = leverage_risk(stock_data)
+st.write(f"Debt to Equity Ratio: {debt_to_equity}")
+st.write(f"Total Debt: {total_debt}")
+
+st.subheader("Profitability Risk")
+profit_margin, roa = profitability_risk(stock_data)
+st.write(f"Profit Margin: {profit_margin:.2%}")
+st.write(f"Return on Assets (ROA): {roa:.2%}")
+
+st.subheader("Valuation Risk")
+pe_ratio, price_to_sales = valuation_risk(stock_data)
+st.write(f"P/E Ratio: {pe_ratio}")
+st.write(f"Price to Sales Ratio: {price_to_sales}")
+
+st.subheader("Dividend Risk")
+payout_ratio, dividend_yield = dividend_risk(stock_data)
+st.write(f"Payout Ratio: {payout_ratio:.2%}")
+st.write(f"Dividend Yield: {dividend_yield:.2%}")
+
+st.subheader("Operational Risk")
+operating_margin, roe = operational_risk(stock_data)
+st.write(f"Operating Margin: {operating_margin:.2%}")
+st.write(f"Return on Equity (ROE): {roe:.2%}")
+
+st.subheader("Financial Health Metrics")
+quick_ratio, current_ratio = financial_health_risk(stock_data)
+st.write(f"Quick Ratio: {quick_ratio}")
+st.write(f"Current Ratio: {current_ratio}")
+
+st.subheader("Sector and Industry Risk Metrics")
+sector_pe, industry_debt_to_equity = sector_industry_risk(stock_data)
+st.write(f"Sector P/E: {sector_pe}")
+st.write(f"Industry Debt to Equity Ratio: {industry_debt_to_equity}")
+
+st.subheader("Valuation vs. Industry Metrics")
+pe_vs_industry = valuation_vs_industry_risk(stock_data)
+st.write(f"P/E vs Industry: {pe_vs_industry:.2f}")
