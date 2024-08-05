@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 # Load the stock data from Excel
-file_path = 'path_to_all_stocks_data.xlsx'  # Update this path as needed
+file_path = 'all_stocks_data.xlsx'  # Update this path as needed
 stock_data = pd.read_excel(file_path)
 
 # Print column names to verify
