@@ -124,7 +124,7 @@ def calculate_risk_metrics(stock_data):
 st.title('Stock Risk Assessment')
 
 # Select stock
-stock_symbol = st.selectbox('Select Stock Symbol', df['Symbol'].unique())
+stock_symbol = st.selectbox('Select Stock Symbol', df['symbol'].unique())
 stock_data = df[df['Symbol'] == stock_symbol].iloc[0]
 
 # Calculate risk metrics
