@@ -10,6 +10,18 @@ def load_data(file_path):
 def calculate_risk_metrics(stock_data):
     risk_scores = {}
 
+    # Ensure all required columns are present in the data
+    required_columns = [
+        'beta', '52WeekChange', 'dayHigh', 'dayLow', 'averageVolume', 
+        'currentRatio', 'quickRatio', 'volume', 'debtToEquity', 
+        'totalDebt', 'sharesOutstanding', 'bookValue', 'profitMargins', 
+        'grossMargins', 'ebitdaMargins', 'returnOnAssets', 'returnOnEquity', 
+        'trailingPE', 'priceToBook', 'priceToSalesTrailing12Months'
+    ]
+    for col in required_columns:
+        if col not in stock_data:
+            raise KeyError(f"Column '{col}' is missing in the data")
+
     # Market Risk Metrics
     beta = stock_data['beta']
     if beta < 0.5:
@@ -176,60 +188,59 @@ def calculate_risk_metrics(stock_data):
     else:
         risk_scores['Price-to-Sales Ratio'] = 4
 
-    # Aggregate the scores
     total_score = sum(risk_scores.values())
-
     return risk_scores, total_score
 
-# Streamlit App Layout
-st.title("Stock Risk Meter Dashboard")
-st.sidebar.header("Upload Stock Data")
-uploaded_file = st.sidebar.file_uploader("Choose an Excel file", type=["xlsx"])
+# Load stock data
+stock_data = load_data('all_stocks_data.xlsx')
 
-if uploaded_file:
-    stock_data = load_data(uploaded_file)
-    st.sidebar.header("Select Stock")
-    stock_symbol = st.sidebar.selectbox("Stock Symbol", stock_data['symbol'].unique())
+st.title('Stock Risk Assessment')
 
-    if stock_symbol:
-        stock_info = stock_data[stock_data['symbol'] == stock_symbol].iloc[0]
-        risk_scores, total_score = calculate_risk_metrics(stock_info)
+# Allow the user to select a stock symbol
+stock_symbol = st.selectbox('Select a stock symbol', stock_data['symbol'].unique(), index=0)
 
-        st.header(f"Risk Meter for {stock_symbol}")
-        st.subheader("Market Risk Metrics")
-        st.write(f"**Beta**: {risk_scores['Beta']} (score: {risk_scores['Beta']})")
-        st.write(f"**52-Week Change**: {risk_scores['52-Week Change']} (score: {risk_scores['52-Week Change']})")
-        st.write(f"**Price Volatility**: {risk_scores['Price Volatility']} (score: {risk_scores['Price Volatility']})")
+# Filter data for the selected stock
+stock_info = stock_data[stock_data['symbol'] == stock_symbol].squeeze()
 
-        st.subheader("Liquidity Risk Metrics")
-        st.write(f"**Current Ratio**: {risk_scores['Current Ratio']} (score: {risk_scores['Current Ratio']})")
-        st.write(f"**Quick Ratio**: {risk_scores['Quick Ratio']} (score: {risk_scores['Quick Ratio']})")
-        st.write(f"**Volume vs. Average Volume**: {risk_scores['Volume vs. Average Volume']} (score: {risk_scores['Volume vs. Average Volume']})")
+# Calculate risk metrics
+risk_scores, total_score = calculate_risk_metrics(stock_info)
 
-        st.subheader("Leverage Risk Metrics")
-        st.write(f"**Debt-to-Equity Ratio**: {risk_scores['Debt-to-Equity Ratio']} (score: {risk_scores['Debt-to-Equity Ratio']})")
-        st.write(f"**Total Debt**: {risk_scores['Total Debt']} (score: {risk_scores['Total Debt']})")
+# Display risk metrics
+st.header(f"Risk Meter for {stock_symbol}")
+st.subheader("Market Risk Metrics")
+st.write(f"**Beta**: {stock_info['beta']} (score: {risk_scores['Beta']})")
+st.write(f"**52-Week Change**: {stock_info['52WeekChange']} (score: {risk_scores['52-Week Change']})")
+st.write(f"**Price Volatility**: {stock_info['dayHigh'] - stock_info['dayLow']} (score: {risk_scores['Price Volatility']})")
 
-        st.subheader("Profitability Risk Metrics")
-        st.write(f"**Profit Margins**: {risk_scores['Profit Margins']} (score: {risk_scores['Profit Margins']})")
-        st.write(f"**Gross Margins**: {risk_scores['Gross Margins']} (score: {risk_scores['Gross Margins']})")
-        st.write(f"**EBITDA Margins**: {risk_scores['EBITDA Margins']} (score: {risk_scores['EBITDA Margins']})")
-        st.write(f"**Return on Assets (ROA)**: {risk_scores['Return on Assets (ROA)']} (score: {risk_scores['Return on Assets (ROA)']})")
-        st.write(f"**Return on Equity (ROE)**: {risk_scores['Return on Equity (ROE)']} (score: {risk_scores['Return on Equity (ROE)']})")
+st.subheader("Liquidity Risk Metrics")
+st.write(f"**Current Ratio**: {stock_info['currentRatio']} (score: {risk_scores['Current Ratio']})")
+st.write(f"**Quick Ratio**: {stock_info['quickRatio']} (score: {risk_scores['Quick Ratio']})")
+st.write(f"**Volume vs. Average Volume**: {stock_info['volume']} (score: {risk_scores['Volume vs. Average Volume']})")
 
-        st.subheader("Valuation Risk Metrics")
-        st.write(f"**Price-to-Earnings Ratio (P/E)**: {risk_scores['Price-to-Earnings Ratio (P/E)']} (score: {risk_scores['Price-to-Earnings Ratio (P/E)']})")
-        st.write(f"**Price-to-Book Ratio**: {risk_scores['Price-to-Book Ratio']} (score: {risk_scores['Price-to-Book Ratio']})")
-        st.write(f"**Price-to-Sales Ratio**: {risk_scores['Price-to-Sales Ratio']} (score: {risk_scores['Price-to-Sales Ratio']})")
+st.subheader("Leverage Risk Metrics")
+st.write(f"**Debt-to-Equity Ratio**: {stock_info['debtToEquity']} (score: {risk_scores['Debt-to-Equity Ratio']})")
+st.write(f"**Total Debt**: {stock_info['totalDebt']} (score: {risk_scores['Total Debt']})")
 
-        st.header(f"Total Risk Score for {stock_symbol}: {total_score}")
+st.subheader("Profitability Risk Metrics")
+st.write(f"**Profit Margins**: {stock_info['profitMargins']} (score: {risk_scores['Profit Margins']})")
+st.write(f"**Gross Margins**: {stock_info['grossMargins']} (score: {risk_scores['Gross Margins']})")
+st.write(f"**EBITDA Margins**: {stock_info['ebitdaMargins']} (score: {risk_scores['EBITDA Margins']})")
+st.write(f"**Return on Assets (ROA)**: {stock_info['returnOnAssets']} (score: {risk_scores['Return on Assets (ROA)']})")
+st.write(f"**Return on Equity (ROE)**: {stock_info['returnOnEquity']} (score: {risk_scores['Return on Equity (ROE)']})")
 
-        st.markdown(
-            """
-            ### Risk Level:
-            - **Score 14-28**: Low Risk
-            - **Score 29-42**: Medium Risk
-            - **Score 43-56**: High Risk
-            - **Score 57-70**: Very High Risk
-            """
-        )
+st.subheader("Valuation Risk Metrics")
+st.write(f"**Price-to-Earnings Ratio (P/E)**: {stock_info['trailingPE']} (score: {risk_scores['Price-to-Earnings Ratio (P/E)']})")
+st.write(f"**Price-to-Book Ratio**: {stock_info['priceToBook']} (score: {risk_scores['Price-to-Book Ratio']})")
+st.write(f"**Price-to-Sales Ratio**: {stock_info['priceToSalesTrailing12Months']} (score: {risk_scores['Price-to-Sales Ratio']})")
+
+st.header(f"Total Risk Score for {stock_symbol}: {total_score}")
+
+st.markdown(
+    """
+    ### Risk Level:
+    - **Score 14-28**: Low Risk
+    - **Score 29-42**: Medium Risk
+    - **Score 43-56**: High Risk
+    - **Score 57-70**: Very High Risk
+    """
+)
