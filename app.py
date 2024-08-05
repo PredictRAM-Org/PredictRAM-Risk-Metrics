@@ -141,7 +141,7 @@ st.title('Company Risk Assessment')
 
 def load_data():
     # Load your data here
-    return pd.read_csv('your_data_file.csv')
+    return pd.read_csv('all_stocks_data.xlsx')
 
 data = load_data()
 st.write("### Available Companies")
