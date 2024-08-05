@@ -1,228 +1,235 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 
-# Load data from the Excel file
+# Load data from Excel file
 @st.cache_data
-def load_data():
-    return pd.read_excel('all_stocks_data.xlsx')
+def load_data(file_path):
+    return pd.read_excel(file_path)
 
-def calculate_risk_score(value, criteria, risk_mapping):
-    """
-    Calculate risk score based on value and criteria provided.
-    
-    Args:
-        value (float or int): The value to score.
-        criteria (dict): Risk criteria mapping values to scores.
-        risk_mapping (list): List of tuples with ranges and corresponding scores.
-    
-    Returns:
-        int: Risk score.
-    """
-    for range_limit, score in risk_mapping:
-        if value <= range_limit:
-            return score
-    return max(risk_mapping, key=lambda x: x[1])[1]
+# Calculate risk metrics
+def calculate_risk_metrics(stock_data):
+    risk_scores = {}
 
-def compute_risk_scores(result):
-    scores = {}
+    # Market Risk Metrics
+    beta = stock_data['beta']
+    if beta < 0.5:
+        risk_scores['Beta'] = 1
+    elif 0.5 <= beta < 0.9:
+        risk_scores['Beta'] = 2
+    elif 0.9 <= beta < 1.5:
+        risk_scores['Beta'] = 3
+    else:
+        risk_scores['Beta'] = 4
 
-    try:
-        # Market Risk Metrics
-        beta = result['beta'].values[0]
-        fifty_two_week_change = result['52WeekChange'].values[0]
-        price_high = result['dayHigh'].values[0] if 'dayHigh' in result.columns else None
-        price_low = result['dayLow'].values[0] if 'dayLow' in result.columns else None
-        average_volume = result['averageVolume'].values[0]
-        
-        scores['Beta'] = calculate_risk_score(
-            beta, 
-            ['Beta < 0.5', 'Beta 0.5 - 0.9', 'Beta 1.0 - 1.5', 'Beta > 1.5'],
-            [(0.5, 1), (0.9, 2), (1.5, 3), (float('inf'), 4)]
+    change_52_week = stock_data['52WeekChange']
+    if change_52_week > 0.2:
+        risk_scores['52-Week Change'] = 1
+    elif 0 <= change_52_week <= 0.2:
+        risk_scores['52-Week Change'] = 2
+    elif -0.1 <= change_52_week < 0:
+        risk_scores['52-Week Change'] = 3
+    else:
+        risk_scores['52-Week Change'] = 4
+
+    price_volatility = stock_data['dayHigh'] - stock_data['dayLow']
+    avg_volume = stock_data['averageVolume']
+    if price_volatility < avg_volume:
+        risk_scores['Price Volatility'] = 1
+    elif avg_volume <= price_volatility < 2 * avg_volume:
+        risk_scores['Price Volatility'] = 2
+    else:
+        risk_scores['Price Volatility'] = 3
+
+    # Liquidity Risk Metrics
+    current_ratio = stock_data['currentRatio']
+    if current_ratio > 3:
+        risk_scores['Current Ratio'] = 1
+    elif 2 <= current_ratio <= 3:
+        risk_scores['Current Ratio'] = 2
+    elif 1 <= current_ratio < 2:
+        risk_scores['Current Ratio'] = 3
+    else:
+        risk_scores['Current Ratio'] = 4
+
+    quick_ratio = stock_data['quickRatio']
+    if quick_ratio > 1.5:
+        risk_scores['Quick Ratio'] = 1
+    elif 1 <= quick_ratio <= 1.5:
+        risk_scores['Quick Ratio'] = 2
+    elif 0.5 <= quick_ratio < 1:
+        risk_scores['Quick Ratio'] = 3
+    else:
+        risk_scores['Quick Ratio'] = 4
+
+    volume = stock_data['volume']
+    if volume > 3 * avg_volume:
+        risk_scores['Volume vs. Average Volume'] = 1
+    elif 2 * avg_volume <= volume < 3 * avg_volume:
+        risk_scores['Volume vs. Average Volume'] = 2
+    elif avg_volume <= volume < 2 * avg_volume:
+        risk_scores['Volume vs. Average Volume'] = 3
+    else:
+        risk_scores['Volume vs. Average Volume'] = 4
+
+    # Leverage Risk Metrics
+    debt_to_equity = stock_data['debtToEquity']
+    if debt_to_equity < 0.3:
+        risk_scores['Debt-to-Equity Ratio'] = 1
+    elif 0.3 <= debt_to_equity < 0.6:
+        risk_scores['Debt-to-Equity Ratio'] = 2
+    elif 0.6 <= debt_to_equity < 1.0:
+        risk_scores['Debt-to-Equity Ratio'] = 3
+    else:
+        risk_scores['Debt-to-Equity Ratio'] = 4
+
+    total_debt = stock_data['totalDebt']
+    total_equity = stock_data['sharesOutstanding'] * stock_data['bookValue']
+    debt_ratio = total_debt / total_equity
+    if debt_ratio <= 0.2:
+        risk_scores['Total Debt'] = 1
+    elif 0.2 < debt_ratio <= 0.5:
+        risk_scores['Total Debt'] = 2
+    elif 0.5 < debt_ratio <= 0.7:
+        risk_scores['Total Debt'] = 3
+    else:
+        risk_scores['Total Debt'] = 4
+
+    # Profitability Risk Metrics
+    profit_margins = stock_data['profitMargins']
+    if profit_margins > 0.2:
+        risk_scores['Profit Margins'] = 1
+    elif 0.1 <= profit_margins <= 0.2:
+        risk_scores['Profit Margins'] = 2
+    elif 0.05 <= profit_margins < 0.1:
+        risk_scores['Profit Margins'] = 3
+    else:
+        risk_scores['Profit Margins'] = 4
+
+    gross_margins = stock_data['grossMargins']
+    if gross_margins > 0.5:
+        risk_scores['Gross Margins'] = 1
+    elif 0.3 <= gross_margins <= 0.5:
+        risk_scores['Gross Margins'] = 2
+    elif 0.2 <= gross_margins < 0.3:
+        risk_scores['Gross Margins'] = 3
+    else:
+        risk_scores['Gross Margins'] = 4
+
+    ebitda_margins = stock_data['ebitdaMargins']
+    if ebitda_margins > 0.3:
+        risk_scores['EBITDA Margins'] = 1
+    elif 0.2 <= ebitda_margins <= 0.3:
+        risk_scores['EBITDA Margins'] = 2
+    elif 0.1 <= ebitda_margins < 0.2:
+        risk_scores['EBITDA Margins'] = 3
+    else:
+        risk_scores['EBITDA Margins'] = 4
+
+    roa = stock_data['returnOnAssets']
+    if roa > 0.1:
+        risk_scores['Return on Assets (ROA)'] = 1
+    elif 0.05 <= roa <= 0.1:
+        risk_scores['Return on Assets (ROA)'] = 2
+    elif 0.02 <= roa < 0.05:
+        risk_scores['Return on Assets (ROA)'] = 3
+    else:
+        risk_scores['Return on Assets (ROA)'] = 4
+
+    roe = stock_data['returnOnEquity']
+    if roe > 0.15:
+        risk_scores['Return on Equity (ROE)'] = 1
+    elif 0.1 <= roe <= 0.15:
+        risk_scores['Return on Equity (ROE)'] = 2
+    elif 0.05 <= roe < 0.1:
+        risk_scores['Return on Equity (ROE)'] = 3
+    else:
+        risk_scores['Return on Equity (ROE)'] = 4
+
+    # Valuation Risk Metrics
+    pe_ratio = stock_data['trailingPE']
+    if pe_ratio < 10:
+        risk_scores['Price-to-Earnings Ratio (P/E)'] = 1
+    elif 10 <= pe_ratio < 20:
+        risk_scores['Price-to-Earnings Ratio (P/E)'] = 2
+    elif 20 <= pe_ratio < 30:
+        risk_scores['Price-to-Earnings Ratio (P/E)'] = 3
+    else:
+        risk_scores['Price-to-Earnings Ratio (P/E)'] = 4
+
+    pb_ratio = stock_data['priceToBook']
+    if pb_ratio < 1:
+        risk_scores['Price-to-Book Ratio'] = 1
+    elif 1 <= pb_ratio < 2:
+        risk_scores['Price-to-Book Ratio'] = 2
+    elif 2 <= pb_ratio < 4:
+        risk_scores['Price-to-Book Ratio'] = 3
+    else:
+        risk_scores['Price-to-Book Ratio'] = 4
+
+    ps_ratio = stock_data['priceToSalesTrailing12Months']
+    if ps_ratio < 1:
+        risk_scores['Price-to-Sales Ratio'] = 1
+    elif 1 <= ps_ratio < 2:
+        risk_scores['Price-to-Sales Ratio'] = 2
+    elif 2 <= ps_ratio < 4:
+        risk_scores['Price-to-Sales Ratio'] = 3
+    else:
+        risk_scores['Price-to-Sales Ratio'] = 4
+
+    # Aggregate the scores
+    total_score = sum(risk_scores.values())
+
+    return risk_scores, total_score
+
+# Streamlit App Layout
+st.title("Stock Risk Meter Dashboard")
+st.sidebar.header("Upload Stock Data")
+uploaded_file = st.sidebar.file_uploader("Choose an Excel file", type=["xlsx"])
+
+if uploaded_file:
+    stock_data = load_data(uploaded_file)
+    st.sidebar.header("Select Stock")
+    stock_symbol = st.sidebar.selectbox("Stock Symbol", stock_data['symbol'].unique())
+
+    if stock_symbol:
+        stock_info = stock_data[stock_data['symbol'] == stock_symbol].iloc[0]
+        risk_scores, total_score = calculate_risk_metrics(stock_info)
+
+        st.header(f"Risk Meter for {stock_symbol}")
+        st.subheader("Market Risk Metrics")
+        st.write(f"**Beta**: {risk_scores['Beta']} (score: {risk_scores['Beta']})")
+        st.write(f"**52-Week Change**: {risk_scores['52-Week Change']} (score: {risk_scores['52-Week Change']})")
+        st.write(f"**Price Volatility**: {risk_scores['Price Volatility']} (score: {risk_scores['Price Volatility']})")
+
+        st.subheader("Liquidity Risk Metrics")
+        st.write(f"**Current Ratio**: {risk_scores['Current Ratio']} (score: {risk_scores['Current Ratio']})")
+        st.write(f"**Quick Ratio**: {risk_scores['Quick Ratio']} (score: {risk_scores['Quick Ratio']})")
+        st.write(f"**Volume vs. Average Volume**: {risk_scores['Volume vs. Average Volume']} (score: {risk_scores['Volume vs. Average Volume']})")
+
+        st.subheader("Leverage Risk Metrics")
+        st.write(f"**Debt-to-Equity Ratio**: {risk_scores['Debt-to-Equity Ratio']} (score: {risk_scores['Debt-to-Equity Ratio']})")
+        st.write(f"**Total Debt**: {risk_scores['Total Debt']} (score: {risk_scores['Total Debt']})")
+
+        st.subheader("Profitability Risk Metrics")
+        st.write(f"**Profit Margins**: {risk_scores['Profit Margins']} (score: {risk_scores['Profit Margins']})")
+        st.write(f"**Gross Margins**: {risk_scores['Gross Margins']} (score: {risk_scores['Gross Margins']})")
+        st.write(f"**EBITDA Margins**: {risk_scores['EBITDA Margins']} (score: {risk_scores['EBITDA Margins']})")
+        st.write(f"**Return on Assets (ROA)**: {risk_scores['Return on Assets (ROA)']} (score: {risk_scores['Return on Assets (ROA)']})")
+        st.write(f"**Return on Equity (ROE)**: {risk_scores['Return on Equity (ROE)']} (score: {risk_scores['Return on Equity (ROE)']})")
+
+        st.subheader("Valuation Risk Metrics")
+        st.write(f"**Price-to-Earnings Ratio (P/E)**: {risk_scores['Price-to-Earnings Ratio (P/E)']} (score: {risk_scores['Price-to-Earnings Ratio (P/E)']})")
+        st.write(f"**Price-to-Book Ratio**: {risk_scores['Price-to-Book Ratio']} (score: {risk_scores['Price-to-Book Ratio']})")
+        st.write(f"**Price-to-Sales Ratio**: {risk_scores['Price-to-Sales Ratio']} (score: {risk_scores['Price-to-Sales Ratio']})")
+
+        st.header(f"Total Risk Score for {stock_symbol}: {total_score}")
+
+        st.markdown(
+            """
+            ### Risk Level:
+            - **Score 14-28**: Low Risk
+            - **Score 29-42**: Medium Risk
+            - **Score 43-56**: High Risk
+            - **Score 57-70**: Very High Risk
+            """
         )
-        scores['52-Week Change'] = calculate_risk_score(
-            fifty_two_week_change, 
-            ['52-Week Change > 20%', '52-Week Change 0% - 20%', '52-Week Change -10% - 0%', '52-Week Change < -10%'],
-            [(0.2, 1), (0.0, 2), (-0.1, 3), (float('-inf'), 4)]
-        )
-        if price_high is not None and price_low is not None:
-            price_volatility = (price_high - price_low) / average_volume
-            scores['Price Volatility'] = calculate_risk_score(
-                price_volatility, 
-                ['Low Volatility', 'Moderate Volatility', 'High Volatility'],
-                [(1, 1), (2, 2), (float('inf'), 3)]
-            )
-
-        # Liquidity Risk Metrics
-        current_ratio = result['currentRatio'].values[0]
-        quick_ratio = result['quickRatio'].values[0]
-        volume = result['volume'].values[0]
-        
-        scores['Current Ratio'] = calculate_risk_score(
-            current_ratio, 
-            ['Current Ratio > 3', 'Current Ratio 2 - 3', 'Current Ratio 1 - 2', 'Current Ratio < 1'],
-            [(3, 1), (2, 2), (1, 3), (float('-inf'), 4)]
-        )
-        scores['Quick Ratio'] = calculate_risk_score(
-            quick_ratio, 
-            ['Quick Ratio > 1.5', 'Quick Ratio 1 - 1.5', 'Quick Ratio 0.5 - 1', 'Quick Ratio < 0.5'],
-            [(1.5, 1), (1.0, 2), (0.5, 3), (float('-inf'), 4)]
-        )
-        if average_volume > 0:
-            volume_vs_avg_volume = volume / average_volume
-            scores['Volume vs. Average Volume'] = calculate_risk_score(
-                volume_vs_avg_volume, 
-                ['Volume > 3 * Average Volume', 'Volume 2 - 3 * Average Volume', 'Volume 1 - 2 * Average Volume', 'Volume < 1 * Average Volume'],
-                [(3, 1), (2, 2), (1, 3), (float('-inf'), 4)]
-            )
-
-        # Leverage Risk Metrics
-        debt_to_equity = result['debtToEquity'].values[0]
-        total_debt = result['totalDebt'].values[0]
-        equity = result['totalEquity'].values[0]
-        
-        scores['Debt-to-Equity Ratio'] = calculate_risk_score(
-            debt_to_equity, 
-            ['Debt-to-Equity < 0.3', 'Debt-to-Equity 0.3 - 0.6', 'Debt-to-Equity 0.6 - 1.0', 'Debt-to-Equity > 1.0'],
-            [(0.3, 1), (0.6, 2), (1.0, 3), (float('inf'), 4)]
-        )
-        if equity > 0:
-            total_debt_ratio = total_debt / equity
-            scores['Total Debt'] = calculate_risk_score(
-                total_debt_ratio, 
-                ['Total Debt ≤ 20% of Equity', 'Total Debt 20% - 50% of Equity', 'Total Debt 50% - 70% of Equity', 'Total Debt > 70% of Equity'],
-                [(0.2, 1), (0.5, 2), (0.7, 3), (float('inf'), 4)]
-            )
-
-        # Profitability Risk Metrics
-        profit_margins = result['profitMargins'].values[0]
-        gross_margins = result['grossMargins'].values[0]
-        ebitda_margins = result['ebitdaMargins'].values[0]
-        return_on_assets = result['returnOnAssets'].values[0]
-        return_on_equity = result['returnOnEquity'].values[0]
-        
-        scores['Profit Margins'] = calculate_risk_score(
-            profit_margins, 
-            ['Profit Margin > 20%', 'Profit Margin 10% - 20%', 'Profit Margin 5% - 10%', 'Profit Margin < 5%'],
-            [(0.2, 1), (0.1, 2), (0.05, 3), (float('-inf'), 4)]
-        )
-        scores['Gross Margins'] = calculate_risk_score(
-            gross_margins, 
-            ['Gross Margin > 50%', 'Gross Margin 30% - 50%', 'Gross Margin 20% - 30%', 'Gross Margin < 20%'],
-            [(0.5, 1), (0.3, 2), (0.2, 3), (float('-inf'), 4)]
-        )
-        scores['EBITDA Margins'] = calculate_risk_score(
-            ebitda_margins, 
-            ['EBITDA Margin > 30%', 'EBITDA Margin 20% - 30%', 'EBITDA Margin 10% - 20%', 'EBITDA Margin < 10%'],
-            [(0.3, 1), (0.2, 2), (0.1, 3), (float('-inf'), 4)]
-        )
-        scores['Return on Assets'] = calculate_risk_score(
-            return_on_assets, 
-            ['ROA > 10%', 'ROA 5% - 10%', 'ROA 2% - 5%', 'ROA < 2%'],
-            [(0.1, 1), (0.05, 2), (0.02, 3), (float('-inf'), 4)]
-        )
-        scores['Return on Equity'] = calculate_risk_score(
-            return_on_equity, 
-            ['ROE > 15%', 'ROE 10% - 15%', 'ROE 5% - 10%', 'ROE < 5%'],
-            [(0.15, 1), (0.1, 2), (0.05, 3), (float('-inf'), 4)]
-        )
-
-        # Valuation Risk Metrics
-        pe_ratio = result['forwardPE'].values[0]
-        pe_ratio_score = 1 if pe_ratio < 10 else 2 if pe_ratio <= 20 else 3 if pe_ratio <= 30 else 4
-
-        price_to_book = result['priceToBook'].values[0]
-        price_to_book_score = 1 if price_to_book < 1 else 2 if price_to_book <= 2 else 3 if price_to_book <= 4 else 4
-
-        price_to_sales = result['priceToSalesTrailing12Months'].values[0]
-        price_to_sales_score = 1 if price_to_sales < 1 else 2 if price_to_sales <= 2 else 3 if price_to_sales <= 4 else 4
-
-        trailing_pe = result['trailingPE'].values[0]
-        trailing_pe_score = 1 if trailing_pe < 10 else 2 if trailing_pe <= 20 else 3 if trailing_pe <= 30 else 4
-
-       # Dividend Risk Metrics
-    dividend_payout_ratio = result['payoutRatio'].values[0]
-    dividend_payout_ratio_score = 1 if dividend_payout_ratio < 0.30 else 2 if dividend_payout_ratio <= 0.50 else 3 if dividend_payout_ratio <= 0.70 else 4
-
-    dividend_yield = result['trailingAnnualDividendYield'].values[0]
-    dividend_yield_score = 1 if dividend_yield > 0.06 else 2 if dividend_yield >= 0.04 else 3 if dividend_yield >= 0.02 else 4
-
-    dividend_history = result['dividendHistory'].values[0]  # Assuming you have this information
-    dividend_history_score = 1 if dividend_history == 'Stable or Increasing' else 2 if dividend_history == 'Mixed' else 3 if dividend_history == 'Irregular' else 4
-
-    # Operational Risk Metrics
-    operating_cash_flow = result['operatingCashflow'].values[0]
-    operating_cash_flow_score = 1 if operating_cash_flow > 0 else 2 if operating_cash_flow >= -1000000 else 3 if operating_cash_flow >= -5000000 else 4
-
-    free_cash_flow = result['freeCashflow'].values[0]
-    free_cash_flow_score = 1 if free_cash_flow > 0 else 2 if free_cash_flow >= -1000000 else 3 if free_cash_flow >= -5000000 else 4
-
-    revenue_growth = result['revenueGrowth'].values[0]
-    revenue_growth_score = 1 if revenue_growth > 0.15 else 2 if revenue_growth >= 0.10 else 3 if revenue_growth >= 0.05 else 4
-
-    # Financial Health Metrics
-    book_value = result['bookValue'].values[0]
-    previous_book_value = result['previousBookValue'].values[0]  # Assuming you have this information
-    book_value_score = 1 if book_value > previous_book_value else 2 if book_value == previous_book_value else 3 if book_value < previous_book_value else 4
-
-    enterprise_value = result['enterpriseValue'].values[0]
-    market_cap = result['marketCap'].values[0]
-    enterprise_value_score = 1 if enterprise_value <= market_cap * 1.1 else 2 if enterprise_value <= market_cap * 1.2 else 3 if enterprise_value > market_cap * 1.5 else 4
-
-    total_cash = result['totalCash'].values[0]
-    total_liabilities = result['totalLiabilities'].values[0]  # Assuming you have this information
-    cash_liquidity_score = 1 if total_cash / total_liabilities > 0.30 else 2 if total_cash / total_liabilities > 0.15 else 3 if total_cash / total_liabilities > 0.05 else 4
-
-    # Sector and Industry Risk Metrics
-    industry_forward_pe = result['industry_forwardPE'].values[0]
-    industry_trailing_pe = result['industry_trailingPE'].values[0]
-    industry_debt_to_equity = result['industry_debtToEquity'].values[0]
-    industry_average_metrics = {
-        'forwardPE': industry_forward_pe,
-        'trailingPE': industry_trailing_pe,
-        'debtToEquity': industry_debt_to_equity
-    }
-
-    company_vs_industry = {
-        'forwardPE': result['forwardPE'].values[0],
-        'trailingPE': result['trailingPE'].values[0],
-        'debtToEquity': result['debtToEquity'].values[0]
-    }
-
-    sector_industry_scores = {}
-    for metric, industry_value in industry_average_metrics.items():
-        company_value = company_vs_industry.get(metric, None)
-        if company_value is not None:
-            if company_value < industry_value:
-                sector_industry_scores[metric] = 1
-            elif company_value == industry_value:
-                sector_industry_scores[metric] = 2
-            else:
-                sector_industry_scores[metric] = 3
-
-    # Aggregating Scores
-    total_score = (scores.get('Beta', 0) + scores.get('52-Week Change', 0) + scores.get('Price Volatility', 0) +
-                   scores.get('Current Ratio', 0) + scores.get('Quick Ratio', 0) + scores.get('Volume vs. Average Volume', 0) +
-                   scores.get('Debt-to-Equity Ratio', 0) + scores.get('Total Debt', 0) +
-                   scores.get('Profit Margins', 0) + scores.get('Gross Margins', 0) + scores.get('EBITDA Margins', 0) +
-                   scores.get('Return on Assets', 0) + scores.get('Return on Equity', 0) +
-                   scores.get('Forward P/E Ratio', 0) + scores.get('Price to Book', 0) + scores.get('Price to Sales', 0) +
-                   scores.get('Trailing P/E Ratio', 0) +
-                   scores.get('Dividend Payout Ratio', 0) + scores.get('Dividend Yield', 0) + scores.get('Dividend History', 0) +
-                   scores.get('Operating Cash Flow', 0) + scores.get('Free Cash Flow', 0) + scores.get('Revenue Growth', 0) +
-                   scores.get('Book Value', 0) + scores.get('Enterprise Value', 0) + scores.get('Cash Liquidity', 0) +
-                   sum(sector_industry_scores.values(), 0))
-
-    return {
-        'Market Risk': scores.get('Beta', 0) + scores.get('52-Week Change', 0) + scores.get('Price Volatility', 0),
-        'Liquidity Risk': scores.get('Current Ratio', 0) + scores.get('Quick Ratio', 0) + scores.get('Volume vs. Average Volume', 0),
-        'Leverage Risk': scores.get('Debt-to-Equity Ratio', 0) + scores.get('Total Debt', 0),
-        'Profitability Risk': scores.get('Profit Margins', 0) + scores.get('Gross Margins', 0) + scores.get('EBITDA Margins', 0) +
-                             scores.get('Return on Assets', 0) + scores.get('Return on Equity', 0),
-        'Valuation Risk': scores.get('Forward P/E Ratio', 0) + scores.get('Price to Book', 0) + scores.get('Price to Sales', 0) +
-                          scores.get('Trailing P/E Ratio', 0),
-        'Dividend Risk': scores.get('Dividend Payout Ratio', 0) + scores.get('Dividend Yield', 0) + scores.get('Dividend History', 0),
-        'Operational Risk': scores.get('Operating Cash Flow', 0) + scores.get('Free Cash Flow', 0) + scores.get('Revenue Growth', 0),
-        'Financial Health': scores.get('Book Value', 0) + scores.get('Enterprise Value', 0) + scores.get('Cash Liquidity', 0),
-        'Sector/Industry Risk': sum(sector_industry_scores.values(), 0)
-    }
